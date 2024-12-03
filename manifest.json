@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Bitcoin Companion",
-  "version": "1.0",
-  "description": "Add the reading time to Chrome Extension documentation articles",
+  "version": "0.1.0",
+  "description": "Adds a tooltip on hover to all money amount with the current exchange rate in bitcoin bits",
   "permissions": ["storage"],
   "icons": {
     "16": "images/icon-16.png",
@@ -13,7 +13,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["btc.js"],
+      "js": ["dist.js"],
       "run_at": "document_end"
     }
   ]
