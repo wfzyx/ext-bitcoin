@@ -8,6 +8,9 @@ type Currency = {
   symbol_first: boolean;
 };
 
+export const ONE_MINUTE = 1 * 60 * 1000;
+export const FIVE_MINUTES = 5 * 60 * 1000;
+
 // TODO: Find a currency json file
 export const CURRENCIES = {
   R$: {
@@ -61,9 +64,9 @@ const MONEY_TOKENS: string[] = Object.values(CURRENCIES)
   .map((currency: Currency) => currency.symbol)
   .concat(Object.values(CURRENCIES).map((currency: Currency) => currency.code));
 
-export const REGEX = new RegExp(
+export const REGEX_FUZZY = new RegExp(
   `^(${MONEY_TOKENS.map((token) => token.replace("$", "\\$")).join(
     "|"
-  )})\\s?((\\d+(\\.|,|')?)+\\d)$`,
+  )})\\s?((\\d+(\\.|,|')?)+)$`,
   "i"
 );

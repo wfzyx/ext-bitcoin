@@ -1,40 +1,48 @@
 import currency from "currency.js";
-import { CURRENCIES, REGEX } from "model";
+import { CURRENCIES, FIVE_MINUTES, ONE_MINUTE, REGEX_FUZZY } from "model";
 
 async function convertPrices() {
-  const currencyMap: Record<string, number> = {};
+  const thisPageCurrencyMap: Record<string, number> = {};
   const elements = document.querySelectorAll("*");
-  const existingTooltipElements: HTMLElement[] = [];
 
   for (const e of elements) {
     const element = e as HTMLElement;
-    const matches = element.textContent?.match(REGEX);
-    if (!matches) continue;
-    if (element.dataset.processed === "true") continue;
+    const matches = element.textContent?.match(REGEX_FUZZY);
 
-    element.dataset.processed = "true";
+    if (!matches) continue;
 
     const currencyCode = CURRENCIES[matches[1] as keyof typeof CURRENCIES].code;
-    const storageKey = `${currencyCode}-exchangeRate`;
+    const rateStorageKey = `${currencyCode}-exchangeRate`;
 
-    if (!currencyMap[currencyCode]) {
-      const storageData = await chrome.storage.local.get(storageKey);
-      if (!storageData || Object.keys(storageData).length === 0) {
+    if (!thisPageCurrencyMap[currencyCode]) {
+      const { [rateStorageKey]: currencyRate } = await chrome.storage.local.get(
+        rateStorageKey
+      );
+
+      if (!currencyRate) {
         await updateExchangeRateToLocalStorage(currencyCode);
       }
-      const { [storageKey]: exchangeRate } = await chrome.storage.local.get(
-        storageKey
+
+      const { [rateStorageKey]: exchangeRate } = await chrome.storage.local.get(
+        rateStorageKey
       );
-      currencyMap[currencyCode] = exchangeRate;
+
+      thisPageCurrencyMap[currencyCode] = exchangeRate;
     }
 
-    const exchangeRate = currencyMap[currencyCode];
+    const exchangeRate = thisPageCurrencyMap[currencyCode];
     const originalText = element.textContent!;
+
+    // TODO: use the decimal and thousands separators from the model file
+    // TODO2: we can try to detect the wrongly typed format
     const price = currency(originalText, {
       symbol: matches[1],
       precision: 8,
-      decimal: ",",
+      decimal: CURRENCIES[matches[1] as keyof typeof CURRENCIES].decimal_sep,
+      separator:
+        CURRENCIES[matches[1] as keyof typeof CURRENCIES].thousands_sep,
     });
+
     const bitcoinPrice = price.divide(exchangeRate);
     const bitsPrice = currency(bitcoinPrice.multiply(1e6), { precision: 2 });
 
@@ -46,26 +54,11 @@ async function convertPrices() {
     });
 
     // Add tooltip
-    element.dataset.btc = tooltip;
-
-    existingTooltipElements.push(element);
+    element.title = tooltip;
   }
-
-  await Promise.resolve();
-  existingTooltipElements.forEach((e) => {
-    if (existingTooltipElements.some((it) => it.contains(e) && it !== e)) {
-      e.dataset.btc = "";
-    }
-  });
 }
 
-async function updateExchangeRateToLocalStorage(currency: string = "USD") {
-  const { lastUpdate } = await chrome.storage.local.get(
-    `${currency}-exchangeRateTimestamp`
-  );
-
-  if (lastUpdate && new Date().getTime() - lastUpdate < 3600 * 1000) return;
-
+async function updateExchangeRateToLocalStorage(currency: string) {
   try {
     const response = await fetch(
       `https://api.coindesk.com/v1/bpi/currentprice/${currency}.json`
@@ -75,34 +68,27 @@ async function updateExchangeRateToLocalStorage(currency: string = "USD") {
       throw new Error(`Exchange rate data not found for ${currency}`);
     await chrome.storage.local.set({
       [`${currency}-exchangeRate`]: data.bpi[currency].rate_float,
-      [`${currency}-exchangeRateTimestamp`]: Date.now(),
+      [`${currency}-exchangeRateTimestamp`]: new Date().getTime(),
     });
   } catch (error) {
     console.error(error);
   }
 }
 
-// Create a style element
-const style = document.createElement("style");
-
-// Add CSS rules
-style.textContent = `
-[data-btc]:hover::after {
-  display: block;
-  position: absolute;
-  content: attr(data-btc);
-  border: 1px solid black;
-  background: #eee;
-  padding: .25em;
-  z-index: 99;
+async function clearDeadRates() {
+  Object.values(CURRENCIES)
+    .map((e) => e.code)
+    .forEach(async (e) => {
+      const key = `${e}-exchangeRateTimestamp`;
+      const { [key]: lastUpdate } = await chrome.storage.local.get(key);
+      if (lastUpdate && new Date().getTime() - lastUpdate > FIVE_MINUTES) {
+        await chrome.storage.local.remove([key, `${e}-exchangeRate`]);
+      }
+    });
 }
-`;
-
-// Append the style element to the document head
-document.head.appendChild(style);
 
 const observer = new MutationObserver(convertPrices);
 const config = { childList: true, subtree: true };
 observer.observe(document, config);
 
-setInterval(updateExchangeRateToLocalStorage, 300 * 1000);
+setInterval(clearDeadRates, ONE_MINUTE);

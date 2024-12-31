@@ -10,6 +10,9 @@
     "48": "images/icon-48.png",
     "128": "images/icon-128.png"
   },
+  "action": {
+    "default_popup": "src/popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
