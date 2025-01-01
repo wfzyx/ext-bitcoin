@@ -7,7 +7,7 @@ async function convertPrices() {
 
   for (const e of elements) {
     const element = e as HTMLElement;
-    const matches = element.textContent?.match(REGEX_FUZZY);
+    const matches = element.textContent?.trim().match(REGEX_FUZZY);
 
     if (!matches) continue;
 
@@ -31,7 +31,7 @@ async function convertPrices() {
     }
 
     const exchangeRate = thisPageCurrencyMap[currencyCode];
-    const originalText = element.textContent!;
+    const originalText = element.textContent!.trim();
 
     // TODO: use the decimal and thousands separators from the model file
     // TODO2: we can try to detect the wrongly typed format
