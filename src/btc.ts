@@ -1,6 +1,8 @@
 import currency from "currency.js";
 import { CURRENCIES, FIVE_MINUTES, ONE_MINUTE, REGEX_FUZZY } from "model";
 
+let updatedLastMinute = false;
+
 async function convertPrices() {
   const thisPageCurrencyMap: Record<string, number> = {};
   const elements = document.querySelectorAll("*");
@@ -19,8 +21,9 @@ async function convertPrices() {
         rateStorageKey
       );
 
-      if (!currencyRate) {
+      if (!currencyRate && !updatedLastMinute) {
         await updateExchangeRateToLocalStorage(currencyCode);
+        updatedLastMinute = true
       }
 
       const { [rateStorageKey]: exchangeRate } = await chrome.storage.local.get(
@@ -92,3 +95,4 @@ const config = { childList: true, subtree: true };
 observer.observe(document, config);
 
 setInterval(clearDeadRates, ONE_MINUTE);
+setInterval(() => (updatedLastMinute = false), ONE_MINUTE);

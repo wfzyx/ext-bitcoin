@@ -13,6 +13,12 @@
     "@types/bun": "latest"
   },
   "scripts": {
-    "pack": "bun build --minify src/btc.js > dist.js && zip ext.zip dist.js manifest.json images/*"
+    "_dist": "mkdir -p dist",
+    "_image": "cp -rf images dist",
+    "_manifest": "cp -f manifest.json dist",
+    "_build": "bun build --minify src/btc.js > dist/sw.js",
+    "compile": "bun _dist && bun _image && bun _manifest && bun _build",
+    "pack": "bun compile && zip -r extension.zip dist/* && mv extension.zip dist/extension.zip",
+    "clean": "rm -rf extension.zip && rm -rf dist && rm -rf node_modules"
   }
 }
